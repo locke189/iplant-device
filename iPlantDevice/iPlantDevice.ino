@@ -1,6 +1,9 @@
 
 // Time options
 #define   SENSOR_TIME     60000 // 1 minute
+unsigned long volatile sensor_timeStamp = 0;
+
+
 
 // Wifi Options
 #define SSID "Juan's Wi-Fi Network";
@@ -11,14 +14,14 @@
 
 //Plant Options
 #define MOIST_SENSOR_APIN 0
+#define MOIST_SENSOR_DPIN 8
+
 //Moisture sensor setup
 int moistData = 0;
+bool sensorOn = false;
 
 //App Status
 bool appConnected = false;
-
-//Time
-unsigned long volatile sensor_timeStamp = 0;
 
 //ESP Functions
 String cmd;
@@ -83,8 +86,10 @@ bool serverConnectionESP(){
 }
 
 void setup()  {
-  
 
+  //Moisture sensor setup
+  pinMode(MOIST_SENSOR_DPIN, OUTPUT);     // sets the digital pin as output
+  digitalWrite(MOIST_SENSOR_DPIN, LOW);    // sets the sensor off
   
   //Serial port setup
   Serial.begin(9600);
@@ -127,16 +132,16 @@ void loop()  {
   if ( ((millis() - sensor_timeStamp) >= SENSOR_TIME) || ( ((millis() - sensor_timeStamp) < 0 ) ) ){
 
     //Moisture Sensor Readings
+    digitalWrite(MOIST_SENSOR_DPIN, HIGH);   // Turns the sensor On
+    delay(1000);                  // waits for a second
     moistData = analogRead(MOIST_SENSOR_APIN);    // read the input pin
-
-    //Send Data to server
+    delay(1000);
+    digitalWrite(MOIST_SENSOR_DPIN, LOW);    // sets the sensor off
     
-    Serial.println(String(moistData));
+    //Send Data to server
     
     cmd = "AT+CIPSEND=";
     cmd += String(moistData).length();
-    Serial1.println(cmd);
-    Serial1.println(String(moistData));
 
     if (sendData(cmd,">") ) {
       Serial.println("Ready to Send");
@@ -145,12 +150,12 @@ void loop()  {
         } else {
         Serial.println("Data not sent");
         }
-        
     } else {
       Serial.println("Send command failed");
       appConnected = false;
     }
-    delay(2000);
+    delay(1000);
+    
     
     //Reset timestamp 
     sensor_timeStamp = millis();
