@@ -1,3 +1,6 @@
+//iPlant Device
+//Rev 28/03/2017
+//Version: 0.1.0
 
 // Time options
 #define   SENSOR_TIME     60000 // 1 minute
@@ -8,7 +11,7 @@ unsigned long volatile sensor_timeStamp = 0;
 // Wifi Options
 #define SSID "Juan's Wi-Fi Network";
 #define SSID_PWD "Ragnarok189";
-#define SERVER_IP "192.168.0.14"
+#define SERVER_IP "192.168.0.12"
 #define SERVER_PORT "333"
 
 
