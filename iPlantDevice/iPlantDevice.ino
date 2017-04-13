@@ -1,167 +1,163 @@
-//iPlant Device
-//Rev 28/03/2017
-//Version: 0.1.0
+#include <WiFiEsp.h>
+#include <PubSubClient.h>
+
+/*
+ WiFiEsp example: WebClient
+ This sketch connects to google website using an ESP8266 module to
+ perform a simple web search.
+ For more details see: http://yaab-arduino.blogspot.com/p/wifiesp-example-client.html
+*/
+
+
+// Emulate Serial1 on pins 6/7 if not present
+#ifndef HAVE_HWSERIAL1
+#include "SoftwareSerial.h"
+SoftwareSerial Serial1(0, 1); // RX, TX
+#endif
+
 
 // Time options
 #define   SENSOR_TIME     60000 // 1 minute
 unsigned long volatile sensor_timeStamp = 0;
 
+//MQTT options
+#define MQTT_SERVER "192.168.0.14"
+#define MQTT_PORT  1883
+
+//iPlant Options
+#define DEVICE_ID  2
+#define LIGHT_SENSOR_ID 4
+#define LIGHT_SENSOR_PIN 0
+int lightData = 0;
+
+//WiFi options
+char ssid[] = "Juan's Wi-Fi Network";            // your network SSID (name)
+char pass[] = "Ragnarok189";        // your network password
+int status = WL_IDLE_STATUS;     // the Wifi radio's status
 
 
-// Wifi Options
-#define SSID "Juan's Wi-Fi Network";
-#define SSID_PWD "Ragnarok189";
-#define SERVER_IP "192.168.0.12"
-#define SERVER_PORT "333"
+// Initialize the Ethernet client object
+WiFiEspClient espClient;
+PubSubClient client(espClient);
+long lastMsg = 0;
+char msg[50];
+int value = 0;
 
 
-//Plant Options
-#define MOIST_SENSOR_APIN 0
-#define MOIST_SENSOR_DPIN 8
 
-//Moisture sensor setup
-int moistData = 0;
-bool sensorOn = false;
 
-//App Status
-bool appConnected = false;
+void setup_wifi() {
 
-//ESP Functions
-String cmd;
+  delay(10);
+  // We start by connecting to a WiFi network
+  // initialize ESP module
+  WiFi.init(&Serial1);
 
-bool sendData(String data, char* validation){
-  Serial.println(data);  
-  Serial1.println(data);
+  // check for the presence of the shield
+  if (WiFi.status() == WL_NO_SHIELD) {
+    Serial.println("WiFi shield not present");
+    // don't continue
+    while (true);
+  }
 
-  if (Serial1.find(validation)) {
-    Serial1.read();
-    return true;
-  } else {
-    Serial1.read();
-    return false;
+
+
+  // attempt to connect to WiFi network
+  while ( status != WL_CONNECTED) {
+    Serial.print("Attempting to connect to WPA SSID: ");
+    Serial.println(ssid);
+    // Connect to WPA/WPA2 network
+    status = WiFi.begin(ssid, pass);
   }
 }
 
-//ESP module reset
-void resetModuleESP(){
-  if (sendData("AT+RST","ready") ) {
-    Serial.println("Module is ready");
-  } else {
-    Serial.println("Module is not ready");
-  }
-  delay(2000); 
-}
-
-//ESP Wifi Connection
-void wifiConnectionESP(){
-  //Wifi Connection
-  cmd = "AT+CWJAP=\""; 
-  cmd += SSID; 
-  cmd += "\",\""; 
-  cmd += SSID_PWD;
-  cmd += "\"";
-
-  if (sendData(cmd,"OK")) {
-    Serial.println("WiFi Connected!");
-  } else {
-    Serial.println("WiFi not ready");
-  }
-  delay(2000);
-}
-
-//ESP Server Connection
-bool serverConnectionESP(){
-  cmd = "AT+CIPSTART=\"TCP\",\""; 
-  cmd += SERVER_IP; 
-  cmd += "\","; 
-  cmd += SERVER_PORT;
+void callback(char* topic, byte* payload, unsigned int length) {
+    
+    Serial.println("Executing Callback");
+    
+    Serial.print("Message arrived [");
+    Serial.print(topic);
+    Serial.print("] ");
+    for (int i=0;i<length;i++) {
+      Serial.print((char)payload[i]);
+    }
+    Serial.println();
   
-  if (sendData(cmd,"OK")) {
-    Serial.println("Connected to server");
-    delay(2000);
-    return true;
-  } else {
-    Serial.println("Server connection problems");
-    delay(2000);
-    return false;
+
+    subscriptions();
+    }
+
+
+void subscriptions(){
+      if(client.subscribe("inTopic")){
+        Serial.println("Subscription OK");
+        }
+       else {
+        Serial.println("Subscription FAILED");
+        }
   }
-  delay(2000);   
+
+void reconnect() {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    // Create a random client ID
+    String clientId = "ESP8266Client-";
+    clientId += String(random(0xffff), HEX);
+    // Attempt to connect
+    if (client.connect(clientId.c_str())) {
+      Serial.println("connected");
+      // Once connected resubscribe
+      client.publish("regDevice", "{'id': '2', 'version': '0.1.1', 'type': 'iPlant' }");
+      subscriptions();
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
 }
 
-void setup()  {
 
-  //Moisture sensor setup
-  pinMode(MOIST_SENSOR_DPIN, OUTPUT);     // sets the digital pin as output
-  digitalWrite(MOIST_SENSOR_DPIN, LOW);    // sets the sensor off
-  
-  //Serial port setup
-  Serial.begin(9600);
+void setup()
+{
+   // set the digital pin as output:
+
+  // initialize serial for debugging
+  Serial.begin(115200);
+  // initialize serial for ESP module
   Serial1.begin(115200);
-  Serial1.setTimeout(5000);
-  delay(10000);
-
-  //ESP module reset
-  resetModuleESP();
-
-  //ESP Wifi Connection
-  wifiConnectionESP();
-  
-  //TCP Server Connection
-  appConnected = serverConnectionESP();
+  setup_wifi();
+  client.setServer(MQTT_SERVER, MQTT_PORT);
+  client.setCallback(callback);
 }
 
-void loop()  {
 
-   if(!appConnected){
-     //ESP module reset
-     resetModuleESP();
-     //ESP Wifi Connection
-     wifiConnectionESP();
-     //TCP Server Connection
-     appConnected = serverConnectionESP();
-   }
-   
-   if (Serial1.available()) {
-      int inByte = Serial1.read();
-      Serial.write(inByte);
-   }
- 
-  if (Serial.available()) {
-     int inByte = Serial.read();
-     Serial1.write(inByte);
+
+void loop() {
+
+  if (!client.connected()) {
+    reconnect();
   }
+  
+  delay(50);
+  client.loop();
 
   //Sensor Updates! in main loop
   if ( ((millis() - sensor_timeStamp) >= SENSOR_TIME) || ( ((millis() - sensor_timeStamp) < 0 ) ) ){
 
     //Moisture Sensor Readings
-    digitalWrite(MOIST_SENSOR_DPIN, HIGH);   // Turns the sensor On
-    delay(1000);                  // waits for a second
-    moistData = analogRead(MOIST_SENSOR_APIN);    // read the input pin
-    delay(1000);
-    digitalWrite(MOIST_SENSOR_DPIN, LOW);    // sets the sensor off
+    lightData = analogRead(LIGHT_SENSOR_PIN);    // read the input pin
+
     
     //Send Data to server
-    
-    cmd = "AT+CIPSEND=";
-    cmd += String(moistData).length();
+    client.publish("devices/1/sensors/1", String(lightData).c_str());
 
-    if (sendData(cmd,">") ) {
-      Serial.println("Ready to Send");
-      if (sendData(String(moistData),"SEND OK") ) {
-        Serial.println("Data sent");
-        } else {
-        Serial.println("Data not sent");
-        }
-    } else {
-      Serial.println("Send command failed");
-      appConnected = false;
-    }
-    delay(1000);
-    
     
     //Reset timestamp 
     sensor_timeStamp = millis();
     }
-  
+
 }
