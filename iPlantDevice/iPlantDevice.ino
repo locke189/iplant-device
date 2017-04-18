@@ -1,163 +1,153 @@
-#include <WiFiEsp.h>
-#include <PubSubClient.h>
 
-/*
- WiFiEsp example: WebClient
- This sketch connects to google website using an ESP8266 module to
- perform a simple web search.
- For more details see: http://yaab-arduino.blogspot.com/p/wifiesp-example-client.html
-*/
+#include "JIWifi.h"
+#include "JIMqtt.h"
 
+#include "Device.h"
+#include "Led.h"
+#include "Moisture.h"
 
-// Emulate Serial1 on pins 6/7 if not present
-#ifndef HAVE_HWSERIAL1
-#include "SoftwareSerial.h"
-SoftwareSerial Serial1(0, 1); // RX, TX
-#endif
+////WiFi options
+#define SSID "Juan's Wi-Fi Network"            // your network SSID (name)
+#define SSID_PWD "Ragnarok189"       // your network password
+JIWifi wifi(SSID, SSID_PWD);
 
+////MQTT options
+#define MQTT_SERVER "192.168.0.14"
+#define MQTT_PORT  1883
+#define MQTT_CLIENTID "002"
+PubSubClient client(wifi.espClient);
+JIMqtt mqtt(MQTT_SERVER, MQTT_PORT, MQTT_CLIENTID, &client);
 
 // Time options
 #define   SENSOR_TIME     60000 // 1 minute
 unsigned long volatile sensor_timeStamp = 0;
 
-//MQTT options
-#define MQTT_SERVER "192.168.0.14"
-#define MQTT_PORT  1883
-
-//iPlant Options
-#define DEVICE_ID  2
-#define LIGHT_SENSOR_ID 4
-#define LIGHT_SENSOR_PIN 0
-int lightData = 0;
-
-//WiFi options
-char ssid[] = "Juan's Wi-Fi Network";            // your network SSID (name)
-char pass[] = "Ragnarok189";        // your network password
-int status = WL_IDLE_STATUS;     // the Wifi radio's status
+// Device options
+#define DEVICE_ID  "1"
+#define DEVICE_TYPE "iPlant-prototype"
+#define DEVICE_PING_TOPIC "ping"
+Device device(DEVICE_ID, DEVICE_TYPE);
 
 
-// Initialize the Ethernet client object
-WiFiEspClient espClient;
-PubSubClient client(espClient);
-long lastMsg = 0;
-char msg[50];
-int value = 0;
+// LED 1 options
+#define LED1_ID "0"
+#define LED1_PIN 2
+Led led1(LED1_PIN, HIGH, LED1_ID, DEVICE_ID);
+
+// LED built-in options
+#define LEDX_ID "4"
+Led led4(LED_BUILTIN, HIGH, LEDX_ID, DEVICE_ID);
+
+// Moisture sensor options
+#define MST_ID "0"
+#define MST_PIN 0
+#define MST_POWER_PIN 9
+Moisture moist(MST_PIN, MST_POWER_PIN, MST_ID, DEVICE_ID);
 
 
+void callback(char* topic, byte* payload, unsigned int length){
+//  Serial.println("Callback called...");
+//  Serial.print("Message arrived [");
+//  Serial.print(topic);
+//  Serial.print("] ");
+//
+//  for (int i=0;i<length;i++) {
+//    Serial.print((char)payload[i]);
+//  }
+//  Serial.println();
+
+  payload[length] = '\0';
+  String s = String((char*)payload);
 
 
-void setup_wifi() {
-
-  delay(10);
-  // We start by connecting to a WiFi network
-  // initialize ESP module
-  WiFi.init(&Serial1);
-
-  // check for the presence of the shield
-  if (WiFi.status() == WL_NO_SHIELD) {
-    Serial.println("WiFi shield not present");
-    // don't continue
-    while (true);
+  if(strcmp(topic, led1.getTopic()) == 0){
+      
+    if(strcmp(s.c_str(), "1") == 0){
+      led1.setHigh();
+    }else if (strcmp(s.c_str(), "0") == 0){
+      led1.setLow();
+      }
+     mqtt.mqtt_publish(led1.getDataTopic(), String(led1.getState()).c_str() );
+      
+  } else if(strcmp(topic, led4.getTopic()) == 0){
+      Serial.print("Ok!");
+      led4.toggle();
+      mqtt.mqtt_publish(led4.getDataTopic(), String(led4.getState()).c_str() );
+  } else if(strcmp(topic, DEVICE_PING_TOPIC) == 0){
+      mqtt.mqtt_publish(device.getRegistrationTopic(), device.getInfo() );
   }
 
-
-
-  // attempt to connect to WiFi network
-  while ( status != WL_CONNECTED) {
-    Serial.print("Attempting to connect to WPA SSID: ");
-    Serial.println(ssid);
-    // Connect to WPA/WPA2 network
-    status = WiFi.begin(ssid, pass);
-  }
+  
 }
 
-void callback(char* topic, byte* payload, unsigned int length) {
-    
-    Serial.println("Executing Callback");
-    
-    Serial.print("Message arrived [");
-    Serial.print(topic);
-    Serial.print("] ");
-    for (int i=0;i<length;i++) {
-      Serial.print((char)payload[i]);
-    }
-    Serial.println();
-  
-
-    subscriptions();
-    }
+void registration(){
+    mqtt.mqtt_publish(device.getRegistrationTopic(), device.getInfo() );
+    mqtt.mqtt_publish(device.getActuatorRegistrationTopic(), led1.getInfo() );
+    mqtt.mqtt_publish(device.getActuatorRegistrationTopic(), led4.getInfo() );
+    mqtt.mqtt_publish(device.getSensorRegistrationTopic(), moist.getInfo() );
+  }
 
 
 void subscriptions(){
-      if(client.subscribe("inTopic")){
-        Serial.println("Subscription OK");
-        }
-       else {
-        Serial.println("Subscription FAILED");
-        }
+
+    //General
+    mqtt.mqtt_subscription(DEVICE_PING_TOPIC);
+    //Actuators    
+    mqtt.mqtt_subscription(led1.getTopic());
+    mqtt.mqtt_subscription(led4.getTopic());
+      
   }
 
-void reconnect() {
-  // Loop until we're reconnected
-  while (!client.connected()) {
-    Serial.print("Attempting MQTT connection...");
-    // Create a random client ID
-    String clientId = "ESP8266Client-";
-    clientId += String(random(0xffff), HEX);
-    // Attempt to connect
-    if (client.connect(clientId.c_str())) {
-      Serial.println("connected");
-      // Once connected resubscribe
-      client.publish("regDevice", "{'id': '2', 'version': '0.1.1', 'type': 'iPlant' }");
-      subscriptions();
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
-      // Wait 5 seconds before retrying
-      delay(5000);
-    }
-  }
-}
 
-
-void setup()
-{
-   // set the digital pin as output:
-
+void setup(){
+  
   // initialize serial for debugging
   Serial.begin(115200);
   // initialize serial for ESP module
   Serial1.begin(115200);
-  setup_wifi();
-  client.setServer(MQTT_SERVER, MQTT_PORT);
-  client.setCallback(callback);
+  delay(50);  
+  
+  //Actuator setup
+  led1.setup();
+  led4.setup();
+
+  //Sensor setup
+  moist.setup();
+  
+  //Wifi Setup
+  wifi.wifi_setup();
+  mqtt.mqtt_setup();
+  mqtt.mqtt_callback(callback);
+
+  
 }
 
+void loop(){
 
-
-void loop() {
-
-  if (!client.connected()) {
-    reconnect();
-  }
+  if (!mqtt.mqtt_connected()) {
+    mqtt.mqtt_reconnect();
+    registration();
+    subscriptions();
+   }
   
-  delay(50);
-  client.loop();
+  mqtt.mqtt_loop(); 
+
+
 
   //Sensor Updates! in main loop
   if ( ((millis() - sensor_timeStamp) >= SENSOR_TIME) || ( ((millis() - sensor_timeStamp) < 0 ) ) ){
 
-    //Moisture Sensor Readings
-    lightData = analogRead(LIGHT_SENSOR_PIN);    // read the input pin
-
-    
     //Send Data to server
-    client.publish("devices/1/sensors/1", String(lightData).c_str());
+    //led1.toggle();
+    mqtt.mqtt_publish(moist.getDataTopic(), String(moist.getValue()).c_str() );
 
-    
     //Reset timestamp 
     sensor_timeStamp = millis();
     }
 
+ 
 }
+
+
+
+
