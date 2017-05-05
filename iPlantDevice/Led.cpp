@@ -9,7 +9,7 @@
 Led::Led(int pin, int initialState, char* id, char* deviceId){
   _ledPin = pin;
   _ledState = initialState;
-  char tempTopic[40] = "devices/";
+  char tempTopic[40] = "/devices/";
   strcat(tempTopic, deviceId);
   strcat(tempTopic, "/actuators/");
   strcat(tempTopic, id);
@@ -19,8 +19,10 @@ Led::Led(int pin, int initialState, char* id, char* deviceId){
   setType( LED_TYPE );
   setClass( ACTUATOR );
   setInfo();
-    strcat( _dataTopic, getTopic() );
+  strcat( _dataTopic, getTopic() );
   strcat( _dataTopic, LED_DATA_TOPIC );
+  strcat( _actionTopic, getTopic() );
+  strcat( _actionTopic, LED_ACTION_TOPIC );
   }
     
 void Led::toggle(){
@@ -59,5 +61,10 @@ int Led::getState(){
 
  char* Led::getDataTopic(){
   return _dataTopic;
+  
+  }
+
+   char* Led::getActionTopic(){
+  return _actionTopic;
   
   }

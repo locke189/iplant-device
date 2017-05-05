@@ -75,6 +75,9 @@ void callback(char* topic, byte* payload, unsigned int length){
       mqtt.mqtt_publish(led4.getDataTopic(), String(led4.getState()).c_str() );
   } else if(strcmp(topic, DEVICE_PING_TOPIC) == 0){
       mqtt.mqtt_publish(device.getRegistrationTopic(), device.getInfo() );
+      mqtt.mqtt_publish(device.getActuatorRegistrationTopic(), led1.getInfo() );
+      mqtt.mqtt_publish(device.getActuatorRegistrationTopic(), led4.getInfo() );
+      mqtt.mqtt_publish(device.getSensorRegistrationTopic(), moist.getInfo() );
   }
 
   

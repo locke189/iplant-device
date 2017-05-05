@@ -11,7 +11,7 @@ Moisture::Moisture(int pin, int powerPin, char* id, char* deviceId){
   _powerPin = powerPin;
   _sensorPin = pin;
 
-  char tempTopic[40] = "devices/";
+  char tempTopic[40] = "/devices/";
   strcat(tempTopic, deviceId);
   strcat(tempTopic, "/sensors/");
   strcat(tempTopic, id);

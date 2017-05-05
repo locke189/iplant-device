@@ -10,7 +10,7 @@
 #include "Arduino.h"
 
 #define DATA_SUFFIX "/data"
-#define OPTIONS_SUFFIX "/options"
+#define OPTIONS_SUFFIX "/actions"
 #define DEVICE "DEV"
 #define SENSOR "SEN"
 #define ACTUATOR "ACT"

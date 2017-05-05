@@ -8,7 +8,7 @@
 
 
 Device::Device(char* id, char* type ){
-  char tempTopic[30] = "devices/";
+  char tempTopic[30] = "/devices/";
   strcat(tempTopic, id );
   setTopic( tempTopic );
   setId( id );

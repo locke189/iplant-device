@@ -11,6 +11,7 @@
 
 #define LED_TYPE "LED"
 #define LED_DATA_TOPIC "/data"
+#define LED_ACTION_TOPIC "/actions"
 
 class Led: public Base{
 
@@ -25,12 +26,14 @@ class Led: public Base{
     
     int getState();
     char* getDataTopic();
+    char* getActionTopic();
 
   private:
     
     int _ledState;
     int  _ledPin;
     char _dataTopic[40];
+    char _actionTopic[40];
   };
 
 
