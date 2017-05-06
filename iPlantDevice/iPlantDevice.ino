@@ -4,6 +4,7 @@
 
 #include "Device.h"
 #include "Led.h"
+#include "Relay.h"
 #include "Moisture.h"
 
 ////WiFi options
@@ -29,10 +30,10 @@ unsigned long volatile sensor_timeStamp = 0;
 Device device(DEVICE_ID, DEVICE_TYPE);
 
 
-// LED 1 options
-#define LED1_ID "0"
-#define LED1_PIN 2
-Led led1(LED1_PIN, HIGH, LED1_ID, DEVICE_ID);
+// RELAY 1 options
+#define RELAY1_ID "0"
+#define RELAY1_PIN 2
+Relay relay1(RELAY1_ID, HIGH, RELAY1_PIN, DEVICE_ID);
 
 // LED built-in options
 #define LEDX_ID "4"
@@ -60,14 +61,14 @@ void callback(char* topic, byte* payload, unsigned int length){
   String s = String((char*)payload);
 
 
-  if(strcmp(topic, led1.getTopic()) == 0){
+  if(strcmp(topic, relay1.getTopic()) == 0){
       
     if(strcmp(s.c_str(), "1") == 0){
-      led1.setHigh();
+      relay1.setHigh();
     }else if (strcmp(s.c_str(), "0") == 0){
-      led1.setLow();
+      relay1.setLow();
       }
-     mqtt.mqtt_publish(led1.getDataTopic(), String(led1.getState()).c_str() );
+     mqtt.mqtt_publish(relay1.getDataTopic(), String(relay1.getState()).c_str() );
       
   } else if(strcmp(topic, led4.getTopic()) == 0){
       Serial.print("Ok!");
@@ -75,8 +76,11 @@ void callback(char* topic, byte* payload, unsigned int length){
       mqtt.mqtt_publish(led4.getDataTopic(), String(led4.getState()).c_str() );
   } else if(strcmp(topic, DEVICE_PING_TOPIC) == 0){
       mqtt.mqtt_publish(device.getRegistrationTopic(), device.getInfo() );
-      mqtt.mqtt_publish(device.getActuatorRegistrationTopic(), led1.getInfo() );
+      delay(200);
+      mqtt.mqtt_publish(device.getActuatorRegistrationTopic(), relay1.getInfo() );
+      delay(200);
       mqtt.mqtt_publish(device.getActuatorRegistrationTopic(), led4.getInfo() );
+      delay(200);
       mqtt.mqtt_publish(device.getSensorRegistrationTopic(), moist.getInfo() );
   }
 
@@ -85,8 +89,11 @@ void callback(char* topic, byte* payload, unsigned int length){
 
 void registration(){
     mqtt.mqtt_publish(device.getRegistrationTopic(), device.getInfo() );
-    mqtt.mqtt_publish(device.getActuatorRegistrationTopic(), led1.getInfo() );
+    delay(200);
+    mqtt.mqtt_publish(device.getActuatorRegistrationTopic(), relay1.getInfo() );
+    delay(200);
     mqtt.mqtt_publish(device.getActuatorRegistrationTopic(), led4.getInfo() );
+    delay(200);
     mqtt.mqtt_publish(device.getSensorRegistrationTopic(), moist.getInfo() );
   }
 
@@ -96,9 +103,8 @@ void subscriptions(){
     //General
     mqtt.mqtt_subscription(DEVICE_PING_TOPIC);
     //Actuators    
-    mqtt.mqtt_subscription(led1.getTopic());
+    mqtt.mqtt_subscription(relay1.getTopic());
     mqtt.mqtt_subscription(led4.getTopic());
-      
   }
 
 
@@ -111,7 +117,7 @@ void setup(){
   delay(50);  
   
   //Actuator setup
-  led1.setup();
+  relay1.setup();
   led4.setup();
 
   //Sensor setup
@@ -141,7 +147,6 @@ void loop(){
   if ( ((millis() - sensor_timeStamp) >= SENSOR_TIME) || ( ((millis() - sensor_timeStamp) < 0 ) ) ){
 
     //Send Data to server
-    //led1.toggle();
     mqtt.mqtt_publish(moist.getDataTopic(), String(moist.getValue()).c_str() );
 
     //Reset timestamp 

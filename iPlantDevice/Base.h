@@ -36,7 +36,7 @@ class Base{
   protected:
     bool _enabled;
     char _class[4];
-    char _id[4]; 
+    char _id[3]; 
     char _type[20];
     char _info[50];
     char _topic[40];

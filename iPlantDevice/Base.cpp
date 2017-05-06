@@ -17,7 +17,7 @@ char* Base::getTopic(){
   return _topic;
   }
 
-void Base::setId(char* id){
+void Base::setId(char id[3]){
   strcpy(_id, id);
   }
 
@@ -43,11 +43,11 @@ bool Base::isEnabled(){
 
 void Base::setInfo(){
   _info[0] = 0;
-  strcat(_info, "{'id': '");
+  strcat(_info, "{'id':'");
   strcat(_info, _id);
-  strcat(_info, "', 'type': '");
+  strcat(_info, "','type':'");
   strcat(_info, _type);
-  strcat(_info, "' }");
+  strcat(_info, "'}");
   }
 
 char* Base::getInfo(){
